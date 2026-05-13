@@ -3,11 +3,14 @@
 환경 공간데이터 통합 관리 및 시각화 플랫폼 - 백엔드
 
 ## 기술 스택
-- Python, FastAPI
+- Python 3.14
+- FastAPI
 - PostgreSQL + PostGIS
-- GeoAlchemy2, GeoPandas
-- AWS S3
-- SQLAlchemy
+- SQLAlchemy + GeoAlchemy2
+- GeoPandas, Shapely
+- AWS S3 (boto3)
+- Uvicorn
+- python-dotenv
 
 ## 로컬 실행 방법
 ```bash
