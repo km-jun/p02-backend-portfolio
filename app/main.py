@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.routers import download
 from app.database import engine, Base
+from app.routers import upload
 
 # DB 테이블 자동 생성
 Base.metadata.create_all(bind=engine)
@@ -13,6 +14,7 @@ app = FastAPI(
 
 # 다운로드 API 라우터 등록
 app.include_router(download.router, tags=["Download"])
+app.include_router(upload.router, tags=["Upload"])
 
 @app.get("/")
 def read_root():
