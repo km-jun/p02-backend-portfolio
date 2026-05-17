@@ -1,21 +1,25 @@
 import os
+import json
 from datetime import datetime
+from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, get_db
 from app.models import DownloadTask, File
-from app.schemas import DownloadRequest, TaskResponse
-from app.services.data_export_service import generate_export_file
+from app.schemas import DownloadRequest, TaskResponse, TaskStatusResponse
+
+from app.services.data_export_service import DataExportService
 from app.services.s3_uploader import generate_presigned_url, upload_to_s3
 
 router = APIRouter()
 
-
-def process_export_task(task_id: int, category: str, target_format: str, filters: dict | None):
+def process_export_task(task_id: UUID, category: str, target_format: str, region_name: Optional[str],
+                        filters: Optional[dict], bbox: Optional[list]):
     db: Session = SessionLocal()
-    generated_file_path: str | None = None
+    generated_file_path: Optional[str] = None
 
     try:
         task = db.query(DownloadTask).filter(DownloadTask.id == task_id).first()
@@ -24,21 +28,42 @@ def process_export_task(task_id: int, category: str, target_format: str, filters
             return
 
         task.status = "PROCESSING"
-        task.started_at = datetime.now()
+        task.progress = 50
         db.commit()
 
         print(f"[Task ID: {task_id}] 백그라운드 파일 생성 작업을 시작합니다...")
 
-        # 1. 파일 생성
-        generated_file_path = generate_export_file(db, category, target_format, filters)
-        print(f"✅ [Task ID: {task_id}] 파일 생성 완료! 위치: {generated_file_path}")
+        export_service = DataExportService()
 
-        # 2. S3 업로드 → S3 키 저장 (URL은 조회 시점에 동적 생성)
+        if region_name:
+            if not filters:
+                filters = {}
+            filters["region_name"] = region_name
+
+        result_json = export_service.export_spatial_data(
+            task_id=str(task_id),
+            category=category,
+            target_format=target_format,
+            bbox=bbox,
+            filters=filters
+        )
+
+        result = json.loads(result_json)
+
+        # 에러 발생 시 처리
+        if result.get("status") == "FAILED":
+            raise Exception(result.get("error"))
+
+        # 정상적으로 생성된 로컬 파일 경로 확보
+        generated_file_path = result.get("file_path")
+        print(f"✅ [Task ID: {task_id}] 로컬 파일 생성 완료! 위치: {generated_file_path}")
+
+        # S3 업로드
         file_name = os.path.basename(generated_file_path)
         s3_key = upload_to_s3(generated_file_path, file_name)
         print(f"✅ [Task ID: {task_id}] S3 업로드 완료!")
 
-        # 3. FILES 테이블에 S3 키 기록
+        #  FILES 테이블에 S3 키 기록
         new_file_record = File(
             file_name=file_name,
             file_size=os.path.getsize(generated_file_path),
@@ -50,10 +75,10 @@ def process_export_task(task_id: int, category: str, target_format: str, filters
         db.commit()
         db.refresh(new_file_record)
 
-        # 4. DOWNLOAD_TASKS 상태 업데이트
+        # DOWNLOAD_TASKS 상태 업데이트
         task.result_file_id = new_file_record.id
+        task.progress = 100
         task.status = "COMPLETED"
-        task.completed_at = datetime.now()
         db.commit()
 
     except Exception as e:
@@ -62,12 +87,13 @@ def process_export_task(task_id: int, category: str, target_format: str, filters
             task = db.query(DownloadTask).filter(DownloadTask.id == task_id).first()
             if task:
                 task.status = "FAILED"
+                task.progress = 0
                 db.commit()
         except Exception:
             pass
 
     finally:
-        # 성공/실패 무관하게 임시 파일 삭제
+        # 성공/실패 무관하게 서버 용량 관리를 위해 임시 파일 삭제
         if generated_file_path and os.path.exists(generated_file_path):
             os.remove(generated_file_path)
         db.close()
@@ -81,7 +107,14 @@ def request_download(
 ):
     new_task = DownloadTask(
         target_format=request.target_format.upper(),
-        status="PENDING"
+        status="PENDING",
+        request_params={
+            "category": request.category,
+            "target_format": request.target_format,
+            "region_name": request.region_name,
+            "filters": request.filters,
+            "bbox": request.bbox
+        }
     )
     db.add(new_task)
     db.commit()
@@ -92,29 +125,29 @@ def request_download(
         task_id=new_task.id,
         category=request.category,
         target_format=request.target_format,
+        region_name=request.region_name,
         filters=request.filters,
+        bbox=request.bbox
     )
 
     return TaskResponse(
-        task_id=new_task.id,
+        task_id=str(new_task.id),
         status=new_task.status,
         message="다운로드 작업이 서버 백그라운드에서 시작되었습니다."
     )
 
 
-@router.get("/spatial/task/{task_id}")
-def check_task_status(task_id: int, db: Session = Depends(get_db)):
-    """
-    프론트엔드가 task_id로 작업 진행 상황과 S3 다운로드 링크를 확인하는 API
-    """
+@router.get("/spatial/task/{task_id}", response_model=TaskStatusResponse)
+def check_task_status(task_id: UUID, db: Session = Depends(get_db)):
     task = db.query(DownloadTask).filter(DownloadTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="해당 작업을 찾을 수 없습니다.")
 
     response_data = {
-        "task_id": task.id,
+        "task_id": str(task.id),
         "status": task.status,
         "target_format": task.target_format,
+        "progress": task.progress,
         "download_url": None
     }
 
@@ -125,3 +158,19 @@ def check_task_status(task_id: int, db: Session = Depends(get_db)):
             response_data["download_url"] = generate_presigned_url(result_file.s3_path)
 
     return response_data
+
+
+@router.get("/spatial/tasks")
+def list_tasks(
+        status: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+        db: Session = Depends(get_db)
+):
+    query = db.query(DownloadTask).order_by(DownloadTask.created_at.desc())
+    if status:
+        query = query.filter(DownloadTask.status == status)
+    tasks = query.offset(offset).limit(limit).all()
+
+    return [{"task_id": str(t.id), "status": t.status, "target_format": t.target_format, "progress": t.progress} for t
+            in tasks]
