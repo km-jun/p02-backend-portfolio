@@ -110,3 +110,27 @@ def list_files(file_type: Optional[str] = None, limit: int = 20, offset: int = 0
     if file_type:
         query = query.filter(FileModel.file_type == file_type)
     return query.offset(offset).limit(limit).all()
+
+@router.get("/layers/{category}/geojson")
+def get_layer_geojson(category: str, db: Session = Depends(get_db)):
+    """특정 레이어의 GeoJSON 반환 (지도 표시용)"""
+    from app.models import SpatialData
+    from geoalchemy2.shape import to_shape
+    
+    rows = db.query(SpatialData).filter(SpatialData.category == category).all()
+    if not rows:
+        raise HTTPException(status_code=404, detail="해당 카테고리 데이터가 없습니다.")
+
+    features = []
+    for row in rows:
+        geom = to_shape(row.geom)
+        features.append({
+            "type": "Feature",
+            "geometry": geom.__geo_interface__,
+            "properties": row.properties
+        })
+
+    return {
+        "type": "FeatureCollection",
+        "features": features
+    }
