@@ -38,6 +38,7 @@ class UploadResponse(BaseModel):
     file_id: int
     file_name: str
     record_count: int
+    category: str
     message: str
 
 class FileResponse(BaseModel):

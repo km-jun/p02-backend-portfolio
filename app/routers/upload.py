@@ -82,6 +82,7 @@ async def upload_spatial_file(
             file_id=file_record.id,
             file_name=original_name,
             record_count=record_count,
+            category=category, 
             message=f"업로드 완료. {record_count}개의 공간 데이터가 저장되었습니다.",
         )
 
