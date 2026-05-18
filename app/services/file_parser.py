@@ -1,6 +1,7 @@
 import os
 import tempfile
 import zipfile
+import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -49,8 +50,17 @@ def parse_upload_file(
                     continue
             except (TypeError, ValueError):
                 pass
+
+                   # Timestamp/datetime → 문자열 변환
+            if isinstance(val, (pd.Timestamp, pd.DatetimeTZDtype)):
+                props[col] = str(val)
+            elif hasattr(val, 'isoformat'):  # datetime 객체
+                props[col] = val.isoformat()
             # numpy 스칼라 → Python 기본 타입 변환
-            props[col] = val.item() if hasattr(val, "item") else val
+            elif hasattr(val, "item"):
+                props[col] = val.item()
+            else:
+                props[col] = val
 
         records.append(SpatialData(
             original_file_id=file_id,
