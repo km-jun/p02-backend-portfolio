@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, get_db
 from app.models import DownloadTask, File
-from app.schemas import DownloadRequest, TaskResponse
+from app.schemas.download import DownloadRequest, TaskResponse
 from app.services.data_export_service import generate_export_file
 from app.services.s3_uploader import generate_presigned_url, upload_to_s3
 
