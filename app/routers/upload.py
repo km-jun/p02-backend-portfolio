@@ -62,7 +62,7 @@ async def upload_spatial_file(
             file_size=len(contents),
             format=file_ext.lstrip(".").upper(),
             s3_path=s3_key,
-            file_type="ORIGINAL",
+            file_type="UPLOAD",
         )
         db.add(file_record)
         db.commit()
