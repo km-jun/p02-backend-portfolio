@@ -135,3 +135,12 @@ def get_layer_geojson(category: str, db: Session = Depends(get_db)):
         "type": "FeatureCollection",
         "features": features
     }
+
+    @router.get("/layers")
+def get_layer_list(db: Session = Depends(get_db)):
+    """DB에 있는 모든 레이어 목록 반환"""
+    from sqlalchemy import distinct
+    from app.models import SpatialData
+    
+    categories = db.query(distinct(SpatialData.category)).all()
+    return [{"category": cat[0]} for cat in categories if cat[0]]
