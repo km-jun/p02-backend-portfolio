@@ -136,11 +136,24 @@ def get_layer_geojson(category: str, db: Session = Depends(get_db)):
         "features": features
     }
 
-    @router.get("/layers")
+@router.get("/layers")
 def get_layer_list(db: Session = Depends(get_db)):
-    """DB에 있는 모든 레이어 목록 반환"""
-    from sqlalchemy import distinct
-    from app.models import SpatialData
+    """DB에 있는 모든 레이어 목록 + file_type 반환"""
+    from sqlalchemy import distinct, func
+    from app.models import SpatialData, File
     
-    categories = db.query(distinct(SpatialData.category)).all()
-    return [{"category": cat[0]} for cat in categories if cat[0]]
+    # category별로 가장 최근 file_type 가져오기
+    subquery = db.query(
+        SpatialData.category,
+        File.file_type,
+        func.max(File.created_at).label('max_created')
+    ).join(
+        File, SpatialData.original_file_id == File.id
+    ).group_by(SpatialData.category, File.file_type).subquery()
+    
+    results = db.query(
+        subquery.c.category,
+        subquery.c.file_type
+    ).all()
+    
+    return [{"category": row[0], "file_type": row[1]} for row in results if row[0]]
