@@ -16,8 +16,7 @@ from app.services.s3_uploader import upload_to_s3
 router = APIRouter()
 
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
-_CATEGORY_RE = re.compile(r'^[a-zA-Z0-9가-힣_-]{1,50}$')
-
+_CATEGORY_RE = re.compile(r'^[a-zA-Z0-9가-힣\s_\-\(\)]{1,50}$')
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_spatial_file(
