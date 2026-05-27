@@ -15,8 +15,8 @@ class DownloadRequest(BaseModel):
     @field_validator("category")
     @classmethod
     def validate_category(cls, v: str) -> str:
-        if not re.match(r'^[a-zA-Z0-9가-힣_-]{1,50}$', v):
-            raise ValueError("category는 1~50자의 영문, 한글, 숫자, _, - 만 허용됩니다.")
+        if not re.match(r'^[a-zA-Z0-9가-힣\s_\-\(\)]{1,50}$', v):
+            raise ValueError("category는 1~50자의 영문, 한글, 숫자, 공백, _, -, (, ) 만 허용됩니다.")
         return v
 
 
