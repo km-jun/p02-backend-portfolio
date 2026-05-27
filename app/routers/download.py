@@ -62,7 +62,18 @@ def process_export_task(task_id: UUID, category: str, target_format: str, region
 
         # S3 업로드
         file_name = os.path.basename(generated_file_path)
-        s3_key = upload_to_s3(generated_file_path, file_name)
+
+        # SHP는 폴더라서 ZIP으로 압축
+        if os.path.isdir(generated_file_path):
+            zip_path = generated_file_path + '.zip'
+            shutil.make_archive(generated_file_path, 'zip', generated_file_path)
+            upload_path = zip_path
+            file_name = file_name + '.zip'
+        else:
+            upload_path = generated_file_path
+
+        s3_key = upload_to_s3(upload_path, file_name)
+
         print(f"✅ [Task ID: {task_id}] S3 업로드 완료!")
 
         #  FILES 테이블에 S3 키 기록
