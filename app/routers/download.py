@@ -1,5 +1,7 @@
 import os
 import json
+import shutil
+
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -95,7 +97,10 @@ def process_export_task(task_id: UUID, category: str, target_format: str, region
     finally:
         # 성공/실패 무관하게 서버 용량 관리를 위해 임시 파일 삭제
         if generated_file_path and os.path.exists(generated_file_path):
-            os.remove(generated_file_path)
+            if os.path.isdir(generated_file_path):
+                shutil.rmtree(generated_file_path)
+            else:
+                os.remove(generated_file_path)
         db.close()
 
 
