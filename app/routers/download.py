@@ -190,3 +190,18 @@ def list_tasks(
 
     return [{"task_id": str(t.id), "status": t.status, "target_format": t.target_format, "progress": t.progress} for t
             in tasks]
+
+@router.get("/spatial/regions/{category}")
+def get_region_list(category: str, db: Session = Depends(get_db)):
+    """특정 카테고리의 지역명 목록 반환"""
+    from app.models import SpatialData
+    from sqlalchemy import distinct
+    
+    regions = db.query(
+        distinct(SpatialData.region_name)
+    ).filter(
+        SpatialData.category == category,
+        SpatialData.region_name != None
+    ).all()
+    
+    return [{"region_name": r[0]} for r in regions if r[0]]
