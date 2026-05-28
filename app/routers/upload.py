@@ -1,125 +1,128 @@
 import os
-import shutil
+import re
 import tempfile
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+import uuid as uuid_lib
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
-import geopandas as gpd
+
 from app.database import get_db
-from app.models import File as FileModel, SpatialData
+from app.models import File as FileModel
+from app.schemas import UploadResponse, FileResponse
+from app.services.file_parser import SUPPORTED_EXTENSIONS, parse_upload_file
+from app.services.s3_uploader import upload_to_s3
 
 router = APIRouter()
 
-ALLOWED_EXTENSIONS = {".geojson", ".json", ".shp", ".zip", ".csv"}
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+_CATEGORY_RE = re.compile(r'^[a-zA-Z0-9가-힣\s_\-\(\)]{1,50}$')
 
-@router.post("/upload")
-async def upload_file(
-    file: UploadFile = File(...),
-    category: str = "default",
-    db: Session = Depends(get_db)
+@router.post("/upload", response_model=UploadResponse)
+async def upload_spatial_file(
+    file: UploadFile = File(..., description="SHP(ZIP), GeoJSON, CSV 파일"),
+    category: str = Form(..., description="레이어 분류명 (예: 지하수, 수질)"),
+    region_name: Optional[str] = Form(None, description="지역명 (예: 서울)"),
+    db: Session = Depends(get_db),
 ):
-    # 확장자 확인
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"지원하지 않는 파일 형식입니다: {ext}")
 
-    # 임시 파일로 저장
-    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
+    if not _CATEGORY_RE.match(category):
+        raise HTTPException(
+            status_code=422,
+            detail="category는 1~50자의 영문, 한글, 숫자, _, - 만 허용됩니다.",
+        )
 
+    original_name = file.filename or "upload"
+    file_ext = os.path.splitext(original_name)[1].lower()
+    if file_ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"지원하지 않는 파일 형식입니다. 허용: {', '.join(sorted(SUPPORTED_EXTENSIONS))}",
+        )
+
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="파일 크기는 100MB를 초과할 수 없습니다.")
+
+    tmp_path: Optional[str] = None
+    file_record: Optional[FileModel] = None
     try:
-        # GeoDataFrame으로 읽기
-        if ext in [".geojson", ".json"]:
-            gdf = gpd.read_file(tmp_path)
-        elif ext == ".zip":  # SHP zip
-            gdf = gpd.read_file(f"zip://{tmp_path}")
-        elif ext == ".csv":
-            import pandas as pd
-            df = pd.read_csv(tmp_path)
-            if "geometry" not in df.columns and ("lat" not in df.columns or "lon" not in df.columns):
-                raise HTTPException(status_code=400, detail="CSV에 geometry 또는 lat/lon 컬럼이 필요합니다.")
-            from shapely.geometry import Point
-            gdf = gpd.GeoDataFrame(
-                df,
-                geometry=[Point(row.lon, row.lat) for _, row in df.iterrows()],
-                crs="EPSG:4326"
-            )
-        else:
-            gdf = gpd.read_file(tmp_path)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
 
-        # CRS 변환 (WGS84로 통일)
-        if gdf.crs is None:
-            gdf = gdf.set_crs("EPSG:4326")
-        else:
-            gdf = gdf.to_crs("EPSG:4326")
+        # 1. S3에 원본 파일 저장 (uploads/ prefix)
+        unique_name = f"{uuid_lib.uuid4().hex}_{original_name}"
+        s3_key = upload_to_s3(tmp_path, unique_name, prefix="uploads")
 
-        # Files 테이블에 기록
+        # 2. FILES 테이블에 ORIGINAL 기록
         file_record = FileModel(
-            file_name=file.filename,
-            file_size=os.path.getsize(tmp_path),
-            format=ext.replace(".", "").upper(),
-            file_type="UPLOAD"
+            file_name=original_name,
+            file_size=len(contents),
+            format=file_ext.lstrip(".").upper(),
+            s3_path=s3_key,
+            file_type="UPLOAD",
         )
         db.add(file_record)
         db.commit()
         db.refresh(file_record)
 
-        # SpatialData 테이블에 각 행 저장
-        count = 0
-        for _, row in gdf.iterrows():
-            if row.geometry is None:
-                continue
-            spatial = SpatialData(
-                original_file_id=file_record.id,
-                category=category,
-                geom=f"SRID=4326;{row.geometry.wkt}",
-                properties={k: str(v) for k, v in row.drop("geometry").items()},
-                region_name=row.get("region_name", None)
-            )
-            db.add(spatial)
-            count += 1
+        # 3. 파싱 → SPATIAL_DATA 저장
+        record_count = parse_upload_file(
+            file_path=tmp_path,
+            file_ext=file_ext,
+            category=category,
+            region_name=region_name,
+            file_id=file_record.id,
+            db=db,
+        )
 
-        db.commit()
-
-        return {
-            "message": "업로드 성공",
-            "file_id": file_record.id,
-            "file_name": file.filename,
-            "category": category,
-            "feature_count": count
-        }
+        return UploadResponse(
+            file_id=file_record.id,
+            file_name=original_name,
+            record_count=record_count,
+            category=category, 
+            message=f"업로드 완료. {record_count}개의 공간 데이터가 저장되었습니다.",
+        )
 
     except HTTPException:
         raise
+    except (ValueError, RuntimeError) as e:
+        if file_record:
+            db.delete(file_record)
+            db.commit()
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"처리 중 오류: {str(e)}")
+        if file_record:
+            try:
+                db.delete(file_record)
+                db.commit()
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail=f"업로드 처리 중 오류: {str(e)}")
     finally:
-        os.unlink(tmp_path)
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
-
-@router.get("/layers")
-def get_layers(db: Session = Depends(get_db)):
-    """업로드된 레이어 목록 조회"""
-    from sqlalchemy import func
-    results = db.query(
-        SpatialData.category,
-        func.count(SpatialData.id).label("count")
-    ).group_by(SpatialData.category).all()
-
-    return [{"category": r.category, "count": r.count} for r in results]
-
+@router.get("/spatial/files", response_model=list[FileResponse])
+def list_files(file_type: Optional[str] = None, limit: int = 20, offset: int = 0, db: Session = Depends(get_db)):
+    query = db.query(FileModel).order_by(FileModel.created_at.desc())
+    if file_type:
+        query = query.filter(FileModel.file_type == file_type)
+    return query.offset(offset).limit(limit).all()
 
 @router.get("/layers/{category}/geojson")
 def get_layer_geojson(category: str, db: Session = Depends(get_db)):
     """특정 레이어의 GeoJSON 반환 (지도 표시용)"""
+    from app.models import SpatialData
+    from geoalchemy2.shape import to_shape
+    
     rows = db.query(SpatialData).filter(SpatialData.category == category).all()
     if not rows:
         raise HTTPException(status_code=404, detail="해당 카테고리 데이터가 없습니다.")
 
     features = []
     for row in rows:
-        from geoalchemy2.shape import to_shape
         geom = to_shape(row.geom)
         features.append({
             "type": "Feature",
@@ -131,3 +134,25 @@ def get_layer_geojson(category: str, db: Session = Depends(get_db)):
         "type": "FeatureCollection",
         "features": features
     }
+
+@router.get("/layers")
+def get_layer_list(db: Session = Depends(get_db)):
+    """DB에 있는 모든 레이어 목록 + file_type 반환"""
+    from sqlalchemy import distinct, func
+    from app.models import SpatialData, File
+    
+    # category별로 가장 최근 file_type 가져오기
+    subquery = db.query(
+        SpatialData.category,
+        File.file_type,
+        func.max(File.created_at).label('max_created')
+    ).join(
+        File, SpatialData.original_file_id == File.id
+    ).group_by(SpatialData.category, File.file_type).subquery()
+    
+    results = db.query(
+        subquery.c.category,
+        subquery.c.file_type
+    ).all()
+    
+    return [{"category": row[0], "file_type": row[1]} for row in results if row[0]]

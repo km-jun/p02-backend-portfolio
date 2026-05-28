@@ -96,7 +96,93 @@ git pull origin develop
 git branch -d feature/기능명
 ```
 
-## 배포
-- 서버: AWS EC2
-- API 주소: http://52.79.237.230:8000
-- API 문서: http://52.79.237.230:8000/docs
+---
+
+## 현재 진행 상황 (2026.05.18)
+
+### 완료된 기능
+- [x] PostgreSQL + PostGIS 연결
+- [x] GeoJSON 파일 업로드 및 DB 저장
+- [x] CSV 파일 업로드 및 DB 저장
+- [x] SHP(ZIP) 파일 업로드 및 DB 저장
+- [x] Timestamp 직렬화 처리 (날짜 필드 자동 변환)
+- [x] 파일명 특수문자 처리 (category 필드)
+- [x] 레이어 목록 조회 API
+- [x] 레이어 GeoJSON 조회 API (지도 렌더링용)
+- [x] CORS 설정 (localhost, Vercel)
+- [x] S3 업로드 및 Presigned URL 생성
+- [x] 다운로드 API (CSV, Excel, SHP)
+
+### 주요 엔드포인트
+
+**데이터 업로드**:
+- `POST /upload` - 파일 업로드 (multipart/form-data)
+  - 지원 형식: GeoJSON, CSV, SHP(ZIP)
+  - 자동 geometry 변환 및 DB 저장
+
+**데이터 조회**:
+- `GET /layers` - 전체 레이어 목록
+- `GET /layers/{category}/geojson` - 특정 레이어 GeoJSON
+
+**데이터 다운로드**:
+- `POST /spatial/query` - 다운로드 요청
+- `GET /spatial/task/{id}` - 작업 상태 확인
+
+### 데이터베이스 구조
+
+**spatial_data 테이블**:
+- `id` - Primary Key
+- `category` - 레이어 구분자
+- `geom` - PostGIS Geometry
+- `properties` - JSONB (속성 정보)
+- `created_at` - 생성 시간
+
+**file_records 테이블**:
+- `id` - Primary Key
+- `original_name` - 원본 파일명
+- `s3_key` - S3 저장 경로
+- `record_count` - 레코드 수
+- `uploaded_at` - 업로드 시간
+
+### 배포 정보
+
+**서버**: AWS EC2 (Ubuntu)
+- **API 주소**: `http://52.79.237.230:8000`
+- **API 문서**: `http://52.79.237.230:8000/docs`
+- **데이터베이스**: AWS RDS (PostgreSQL + PostGIS)
+
+### 알려진 이슈
+
+**HTTP 프로토콜 사용 중**
+- **문제**: Vercel(HTTPS)에서 접근 시 Mixed Content Error
+- **해결**: HTTPS 설정 필요 (도메인 + SSL 인증서)
+- **현재**: localhost에서는 정상 작동
+
+### 다음 단계
+
+1. [ ] 도메인 구매 및 DNS 설정
+2. [ ] Nginx + Let's Encrypt SSL 인증서 설치
+3. [ ] HTTPS(443 포트) 리버스 프록시 설정
+4. [ ] 레이어 필터링 API 추가
+5. [ ] 검색 API (속성 기반)
+6. [ ] 업로드 진행률 WebSocket
+
+### 환경 변수
+
+`.env` 파일 (EC2에만 존재, Git에 미포함):
+```bash
+DATABASE_URL=postgresql://...
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+S3_BUCKET_NAME=...
+```
+
+### 의존성 관리
+
+**가상환경 규칙**:
+- `.venv/` 폴더는 `.gitignore`에 포함
+- 각 환경에서 독립적으로 생성
+- `requirements.txt`로 의존성 관리
+
+### 관련 저장소
+- 프론트엔드: [km-jun/p02-frontend](https://github.com/km-jun/p02-frontend)
