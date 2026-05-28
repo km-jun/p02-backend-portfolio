@@ -6,7 +6,7 @@ from app.database import get_db
 
 router = APIRouter(tags=["Spatial"])
 
-@router.post("/query")
+@router.post("/search")
 def get_spatial_data(
     request: SpatialRequest,
     db: Session = Depends(get_db)
