@@ -7,7 +7,7 @@ from pydantic import BaseModel, field_validator
 
 class DownloadRequest(BaseModel):
     category: str
-    target_format: Literal["CSV", "EXCEL", "SHP", "GEOJSON"]
+    target_format: Literal["CSV", "EXCEL", "SHP", "GEOJSON", "TIF"]
     region_name: Optional[str] = None
     filters: Optional[Dict[str, str]] = None
     bbox: Optional[List[float]] = None

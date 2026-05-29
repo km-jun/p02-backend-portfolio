@@ -25,6 +25,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 | POST | /upload | 파일 업로드 + DB 저장 |
 | GET | /layers | 레이어 목록 조회 |
 | GET | /layers/{category}/geojson | 지도 표시용 GeoJSON |
+| POST | /spatial/search | 지도 영역(BBox) 기반 벡터 데이터 검색 |
+| GET | /layers/{category}/raster | TIF 래스터 이미지 S3 임시 다운로드 URL 반환 |
 | POST | /spatial/query | 다운로드 요청 |
 | GET | /spatial/task/{id} | 작업 상태 확인 |
 
@@ -112,6 +114,9 @@ git branch -d feature/기능명
 - [x] CORS 설정 (localhost, Vercel)
 - [x] S3 업로드 및 Presigned URL 생성
 - [x] 다운로드 API (CSV, Excel, SHP)
+- [x] 공간 데이터 인덱스(GIST) 구축 및 쿼리 최적화
+- [x] TIF 래스터 파일 프론트엔드 히트맵 시각화 연동
+- [x] 대용량 GeoJSON 단순화(ST_Simplify) 적용
 
 ### 주요 엔드포인트
 

@@ -4,15 +4,15 @@ from sqlalchemy.orm import Session
 
 def get_spatial_data_service(request, db: Session):
     query = """
-        SELECT
-            id,
-            category,
-            region_name,
-            ST_AsGeoJSON(geom),
-            properties
-        FROM spatial_data
-        WHERE 1=1
-    """
+            SELECT
+                id,
+                category,
+                region_name,
+                ST_AsGeoJSON(ST_Simplify(geom, 0.0001)),
+                properties
+            FROM spatial_data
+            WHERE geom IS NOT NULL
+        """
     params = {}
     if request.region_name:
         query += " AND region_name ILIKE :region_name"
@@ -36,7 +36,7 @@ def get_spatial_data_service(request, db: Session):
             "maxLat": request.maxLat
         })
     query += " ORDER BY id DESC"
-    limit = request.limit if request.limit else 100
+    limit = request.limit if request.limit else 50000
     params["limit"] = limit
     query += " LIMIT :limit"
     result = db.execute(text(query), params).fetchall()
