@@ -27,13 +27,19 @@ def parse_upload_file(
 ) -> int:
     gdf = _read_to_gdf(file_path, file_ext)
 
-    # CRS가 없으면 WGS84 기본 설정, 다른 CRS면 변환
     if gdf.crs is None:
-        gdf = gdf.set_crs(epsg=4326)
-    elif gdf.crs.to_epsg() != 4326:
-        gdf = gdf.to_crs(epsg=4326)
+        minx, miny, maxx, maxy = gdf.total_bounds
+
+        if maxx > 180 or maxy > 90:
+            gdf = gdf.set_crs(epsg=5179, allow_override=True).to_crs(epsg=4326)
+        else:
+            gdf = gdf.set_crs(epsg=4326)
+    else:
+        if gdf.crs.to_epsg() != 4326:
+            gdf = gdf.to_crs(epsg=4326)
 
     records = []
+
     for _, row in gdf.iterrows():
         geom = row.geometry
         if geom is None or geom.is_empty:
