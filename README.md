@@ -191,3 +191,5 @@ S3_BUCKET_NAME=...
 
 ### 관련 저장소
 - 프론트엔드: [km-jun/p02-frontend](https://github.com/km-jun/p02-frontend)
+
+> 보안 정리: 과거 커밋에 포함된 로컬 DB 비밀번호를 예시 값으로 교체했습니다. 이 과정에서 커밋 ID가 변경되었으며, 기존 작성자·날짜·작업 내용은 유지했습니다.
