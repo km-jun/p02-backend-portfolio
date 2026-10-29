@@ -8,9 +8,9 @@
 - **팀 구성:** 학생 4명, 멘토 1명
 - **프론트엔드:** [p02-frontend-portfolio](https://github.com/km-jun/p02-frontend-portfolio)
 
-## 사용 기술
+## 주요 사용 기술
 
-Python, FastAPI, PostgreSQL·PostGIS, SQLAlchemy, GeoAlchemy2, GeoPandas, Shapely, boto3, AWS S3, Uvicorn
+Python, FastAPI, PostgreSQL·PostGIS · 파일 저장: AWS S3
 
 ## 주요 기능
 
