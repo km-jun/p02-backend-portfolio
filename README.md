@@ -22,7 +22,7 @@ Python, FastAPI, PostgreSQL·PostGIS · 파일 저장: AWS S3
 
 ## 로컬 실행
 
-Python 환경과 PostGIS 확장이 활성화된 PostgreSQL DB, 접근 가능한 S3 버킷이 필요합니다.
+Python, PostGIS가 활성화된 PostgreSQL DB와 S3 환경이 필요합니다.
 
 ```bash
 git clone https://github.com/km-jun/p02-backend-portfolio.git
@@ -32,34 +32,20 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Windows에서는 `source` 명령 대신 `.venv\Scripts\activate`로 가상환경을 활성화합니다.
-
-프로젝트 루트에 `.env`를 만들고 자신의 환경에 맞게 아래 값을 설정하세요. 대괄호로 표시한 내용은 예시이며 실제 값으로 교체해야 합니다.
-
-```dotenv
-DATABASE_URL=postgresql://[DB_USER]:[DB_PASSWORD]@[DB_HOST]:5432/[DB_NAME]
-AWS_ACCESS_KEY_ID=[YOUR_ACCESS_KEY]
-AWS_SECRET_ACCESS_KEY=[YOUR_SECRET_KEY]
-AWS_REGION=ap-northeast-2
-S3_BUCKET_NAME=[YOUR_BUCKET_NAME]
-```
-
-`.env`와 실제 접속 정보는 Git에 올리지 않습니다. 프론트엔드와 연결할 때는 `app/main.py`의 CORS 허용 출처도 실행 주소에 맞춰 확인하세요.
+`.env`에서 DB·AWS 접속 정보를 설정한 뒤 실행합니다.
 
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-실행 후 API 문서는 [http://localhost:8000/docs](http://localhost:8000/docs)에서 확인할 수 있습니다.
+환경변수·Windows 실행·API 문서·배포 설정은 [실행·배포 상세 안내](docs/running.md)를 참고하세요.
 
 ## 현재 상태
 
 기존 AWS 무료 플랜 종료로 현재 운영 API는 제공하지 않습니다. 원래 개발 코드를 보존한 공개용 자료이며, 별도 DB·S3 환경에서의 설치와 통합 실행은 재검증하지 않았습니다.
 
-## 공개용 정리
-
-과거 커밋의 로컬 DB 비밀번호를 예시 값으로 교체했습니다. 작성자·작업 날짜·커밋 메시지와 개발 이력은 보존했으며, 정리 과정에서 커밋 ID가 변경됐습니다. 원본 PR·이슈·댓글은 이전하지 않았습니다.
-
 ## 관련 문서
 
+- [실행·배포 상세 안내](docs/running.md)
 - [개발 당시 팀 문서](docs/team-readme.md)
+- [개발 이력 보존 및 공개용 정리 내역](docs/publication-notes.md)
