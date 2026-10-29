@@ -32,7 +32,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-`.env`에서 DB·AWS 접속 정보를 설정한 뒤 실행합니다.
+`.env`에서 DB·AWS 접속 정보를 설정합니다. 일부 기능은 코드에 고정된 S3 버킷·파일 경로도 변경해야 하므로 [실행·배포 상세 안내](docs/running.md)를 먼저 확인한 뒤 실행합니다.
 
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload

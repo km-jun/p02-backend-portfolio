@@ -2,7 +2,7 @@
 
 아래는 기존 백엔드 저장소의 README를 보존한 기록입니다. 기술 버전·진행 상황·운영 안내는 당시 작성 내용이며, 현재 실행 검증을 의미하지 않습니다. 과거 서버 IP는 로컬 예시 주소로 치환했습니다. 원본 저장소 링크는 비공개일 수 있습니다.
 
-현재 실행 안내는 [현재 README](../README.md#로컬-실행)를 참고하세요.
+현재 실행 안내는 [실행·배포 상세 안내](running.md)를 참고하세요. 현재 DB 모델은 `files`, `spatial_data`, `download_tasks`이며, 아래의 `file_records` 설명과 완료·미완료 목록은 당시 기록입니다.
 
 ---
 
@@ -199,3 +199,5 @@ S3_BUCKET_NAME=...
 
 ### 관련 저장소
 - 프론트엔드: [km-jun/p02-frontend](https://github.com/km-jun/p02-frontend)
+
+[README로 돌아가기](../README.md)
