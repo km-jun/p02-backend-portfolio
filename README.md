@@ -6,7 +6,7 @@
 - **공개용 정리:** 2026년 10월. 새 저장소 생성일과 원래 개발 시기는 다릅니다.
 - **작성자와 이력:** 팀원의 작성자 정보, 커밋 날짜·메시지, 브랜치와 병합 이력을 유지했습니다. 기존 GitHub PR·이슈 페이지는 이전하지 않았습니다.
 - **서비스 상태:** 기존 AWS 무료 플랜 종료로 현재 운영 데모를 제공하지 않습니다. 코드를 실행하려면 별도의 DB·AWS 환경 설정이 필요합니다.
-- **프론트엔드:** [p02-frontend](https://github.com/km-jun/p02-frontend)
+- **프론트엔드:** [p02-frontend-portfolio](https://github.com/km-jun/p02-frontend-portfolio)
 
 ## 본인 계정의 커밋에서 확인되는 변경 사항 — km-jun
 
@@ -230,6 +230,6 @@ S3_BUCKET_NAME=...
 - `requirements.txt`로 의존성 관리
 
 ### 관련 저장소
-- 프론트엔드: [km-jun/p02-frontend](https://github.com/km-jun/p02-frontend)
+- 프론트엔드: [km-jun/p02-frontend-portfolio](https://github.com/km-jun/p02-frontend-portfolio)
 
 > 보안 정리: 과거 커밋에 포함된 로컬 DB 비밀번호를 예시 값으로 교체했습니다. 이 과정에서 커밋 ID가 변경되었으며, 기존 작성자·날짜·작업 내용은 유지했습니다.
